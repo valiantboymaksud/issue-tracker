@@ -126,7 +126,7 @@ export default function AuthButton({ onUserChange }: { onUserChange: (user: User
                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                       {user.displayName || 'User'}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate" title={user.email}>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {user.email}
                     </p>
                   </div>
