@@ -1,7 +1,7 @@
 "use client";
 
 import { Issue, EntryType, IssueStatus } from '@/types/issue';
-import { Trash2, ExternalLink, ArrowLeft, Link2, FileText, LayoutList, ChevronDown } from 'lucide-react';
+import { Trash2, ExternalLink, Database, Terminal, ArrowLeft, Link2, FileText, LayoutList, ChevronDown, Pin, PinOff } from 'lucide-react';
 import MarkdownEditor from './MarkdownEditor';
 import AssigneeSelect from './AssigneeSelect';
 import { useState } from 'react';
@@ -82,6 +82,15 @@ export default function IssueDetails({ issue, onUpdate, onDelete, onBack, assign
           </div>
 
           <div className="flex gap-2 flex-shrink-0">
+            {/* PIN BUTTON */}
+            <button
+                onClick={() => handleFieldUpdate('isPinned', !issue.isPinned)}
+                className={`p-1.5 rounded-md transition-colors ${issue.isPinned ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                title={issue.isPinned ? "Unpin Item" : "Pin Item"}
+            >
+                {issue.isPinned ? <Pin className="w-5 h-5 fill-current" /> : <PinOff className="w-5 h-5" />}
+            </button>
+
             {!isNote && (
                 <>
                     {prUrl && (

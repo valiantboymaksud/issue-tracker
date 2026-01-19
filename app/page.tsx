@@ -18,7 +18,7 @@ export default function Home() {
     'issues', 'all', currentUser, 'daily_tracker_issues_v3', []
   );
   const [assignees, setAssignees, loadingAssignees] = useDataStore<string[]>(
-    'settings', 'assignees', currentUser, 'daily_tracker_assignees_v1', ['Dev Team']
+    'settings', 'assignees', currentUser, 'daily_tracker_assignees_v1', ['John Doe', 'Jane Smith', 'Dev Team']
   );
   const [personalNotes, setPersonalNotes, loadingNotes] = useDataStore<string>(
     'settings', 'notes', currentUser, 'daily_tracker_personal_notes_v1', ""
@@ -27,8 +27,6 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotesOpen, setIsNotesOpen] = useState(false);
-  
-  // REMOVED layoutMode - replaced by Tab state
   const [currentTab, setCurrentTab] = useState<'all' | 'issue' | 'note'>('all');
 
   const handleSelect = (id: string) => setSelectedId(id);
@@ -37,6 +35,14 @@ export default function Home() {
   const handleAddAssignee = (name: string) => {
     if (!assignees.includes(name)) {
       setAssignees([...assignees, name]);
+    }
+  };
+
+  // NEW: Pin Toggle Handler
+  const handleTogglePin = (id: string) => {
+    const target = issues.find(i => i.id === id);
+    if (target) {
+      updateIssue({ ...target, isPinned: !target.isPinned, updatedAt: Date.now() });
     }
   };
 
@@ -49,15 +55,27 @@ export default function Home() {
     }
 
     // 2. Filter by Search
-    if (!searchQuery) return result;
-    const lowerQuery = searchQuery.toLowerCase();
-    return result.filter(
-      (issue) =>
-        issue.title.toLowerCase().includes(lowerQuery) ||
-        issue.description.toLowerCase().includes(lowerQuery) ||
-        issue.assignee.toLowerCase().includes(lowerQuery) ||
-        issue.status.toLowerCase().includes(lowerQuery)
-    );
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(
+        (issue) =>
+          issue.title.toLowerCase().includes(lowerQuery) ||
+          issue.description.toLowerCase().includes(lowerQuery) ||
+          issue.assignee.toLowerCase().includes(lowerQuery) ||
+          issue.status.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    // 3. Sort: Pinned first, then by Updated Time
+    return result.sort((a, b) => {
+      // If pinned status differs, pinned goes first
+      if (a.isPinned !== b.isPinned) {
+        return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
+      }
+      // Otherwise, newest updated goes first
+      return b.updatedAt - a.updatedAt;
+    });
+
   }, [issues, currentTab, searchQuery]);
 
   const createNewItem = (type: EntryType) => {
@@ -73,6 +91,7 @@ export default function Home() {
       commandOrCron: '',
       prBaseUrl: '',
       issueUrl: '',
+      isPinned: false, // Initialize as false
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -127,14 +146,14 @@ export default function Home() {
         </div>
         
         {/* Cloud Status */}
-        {/* {currentUser && (
+        {currentUser && (
             <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/50 text-[10px] text-blue-600 dark:text-blue-300 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                 Syncing with Cloud
             </div>
-        )} */}
+        )}
 
-        {/* TABS (New) */}
+        {/* TABS */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
             <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
                 {(['all', 'issue', 'note'] as const).map((tab) => (
@@ -155,7 +174,7 @@ export default function Home() {
             </div>
         </div>
         
-        {/* SMART CREATE BUTTONS (Based on Tab) */}
+        {/* SMART CREATE BUTTONS */}
         <div className="px-4 pb-3 bg-slate-50 dark:bg-slate-900/50 flex gap-2">
             {currentTab === 'all' ? (
                 <>
@@ -199,6 +218,15 @@ export default function Home() {
 
         {/* SEARCH & LIST */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-10">
+                <input
+                    type="text"
+                    placeholder={`Search ${currentTab === 'all' ? 'items' : currentTab}...`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-950 border-none rounded-lg text-sm text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+                />
+            </div>
             
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {isDataLoading ? (
@@ -212,6 +240,7 @@ export default function Home() {
                     onSelect={handleSelect}
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
+                    onTogglePin={handleTogglePin} // Pass handler
                     />
                 )}
             </div>
@@ -236,7 +265,6 @@ export default function Home() {
             onBack={handleBack}
             assignees={assignees}
             onAddAssignee={handleAddAssignee}
-            // layoutMode prop removed
             />
         )}
       </main>

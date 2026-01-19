@@ -4,7 +4,7 @@ export type IssueStatus = 'to-do' | 'in-progress' | 'in-code-review' | 'in-revie
 
 export interface Issue {
   id: string;
-  type: EntryType; // NEW: 'issue' or 'note'
+  type: EntryType;
   title: string;
   status: IssueStatus;
   assignee: string;
@@ -14,6 +14,7 @@ export interface Issue {
   commandOrCron: string;
   prBaseUrl: string;
   issueUrl: string;
+  isPinned: boolean; // NEW: Pinned/Favorite state
   createdAt: number;
   updatedAt: number;
 }
