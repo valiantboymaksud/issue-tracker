@@ -146,12 +146,12 @@ export default function Home() {
         </div>
         
         {/* Cloud Status */}
-        {currentUser && (
+        {/* {currentUser && (
             <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/50 text-[10px] text-blue-600 dark:text-blue-300 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                 Syncing with Cloud
             </div>
-        )}
+        )} */}
 
         {/* TABS */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
