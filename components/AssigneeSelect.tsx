@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { UserPlus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface AssigneeSelectProps {
   value: string;

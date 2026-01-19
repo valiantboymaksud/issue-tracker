@@ -1,16 +1,19 @@
-export type IssueStatus = 'open' | 'in-progress' | 'blocked' | 'done';
+export type EntryType = 'issue' | 'note';
+
+export type IssueStatus = 'to-do' | 'in-progress' | 'in-code-review' | 'in-review' | 'cancel' | 'dependency';
 
 export interface Issue {
   id: string;
+  type: EntryType; // NEW: 'issue' or 'note'
   title: string;
   status: IssueStatus;
-  assignee: string; // Now selected from a list
+  assignee: string;
   reporter: string;
   description: string;
   query: string;
   commandOrCron: string;
   prBaseUrl: string;
-  issueUrl: string; // New field for direct issue link
+  issueUrl: string;
   createdAt: number;
   updatedAt: number;
 }

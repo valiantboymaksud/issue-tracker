@@ -1,51 +1,35 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Plus, StickyNote, Loader2 } from 'lucide-react';
-import { User } from 'firebase/auth'; // Import User type
-import { Issue } from '@/types/issue';
-import { useDataStore } from '@/hooks/useDataStore'; // New Smart Hook
+import { Plus, StickyNote, Loader2, FileText, LayoutList } from 'lucide-react';
+import { User } from 'firebase/auth';
+import { Issue, EntryType } from '@/types/issue';
+import { useDataStore } from '@/hooks/useDataStore';
 import IssueList from '@/components/IssueList';
 import IssueDetails from '@/components/IssueDetails';
 import ThemeToggle from '@/components/ThemeToggle';
 import PersonalNotes from '@/components/PersonalNotes';
-import AuthButton from '@/components/AuthButton'; // New Auth UI
+import AuthButton from '@/components/AuthButton';
 
 export default function Home() {
-  // User State to drive Cloud vs Local logic
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // --- DATA HOOKS (Switch automatically based on currentUser) ---
-  
   const [issues, setIssues, loadingIssues] = useDataStore<Issue[]>(
-    'issues', 
-    'all', 
-    currentUser, 
-    'daily_tracker_issues_v3', 
-    []
+    'issues', 'all', currentUser, 'daily_tracker_issues_v3', []
   );
-
   const [assignees, setAssignees, loadingAssignees] = useDataStore<string[]>(
-    'settings', 
-    'assignees', 
-    currentUser, 
-    'daily_tracker_assignees_v1', 
-    ['John Doe', 'Jane Smith', 'Dev Team']
+    'settings', 'assignees', currentUser, 'daily_tracker_assignees_v1', ['Dev Team']
   );
-
   const [personalNotes, setPersonalNotes, loadingNotes] = useDataStore<string>(
-    'settings', 
-    'notes', 
-    currentUser, 
-    'daily_tracker_personal_notes_v1', 
-    ""
+    'settings', 'notes', currentUser, 'daily_tracker_personal_notes_v1', ""
   );
-
-  // --- APP STATE ---
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotesOpen, setIsNotesOpen] = useState(false);
+  
+  // REMOVED layoutMode - replaced by Tab state
+  const [currentTab, setCurrentTab] = useState<'all' | 'issue' | 'note'>('all');
 
   const handleSelect = (id: string) => setSelectedId(id);
   const handleBack = () => setSelectedId(null);
@@ -57,22 +41,31 @@ export default function Home() {
   };
 
   const filteredIssues = useMemo(() => {
-    if (!searchQuery) return issues;
+    let result = issues;
+    
+    // 1. Filter by Tab
+    if (currentTab !== 'all') {
+      result = result.filter(issue => issue.type === currentTab);
+    }
+
+    // 2. Filter by Search
+    if (!searchQuery) return result;
     const lowerQuery = searchQuery.toLowerCase();
-    return issues.filter(
+    return result.filter(
       (issue) =>
         issue.title.toLowerCase().includes(lowerQuery) ||
         issue.description.toLowerCase().includes(lowerQuery) ||
         issue.assignee.toLowerCase().includes(lowerQuery) ||
         issue.status.toLowerCase().includes(lowerQuery)
     );
-  }, [issues, searchQuery]);
+  }, [issues, currentTab, searchQuery]);
 
-  const createNewIssue = () => {
+  const createNewItem = (type: EntryType) => {
     const newIssue: Issue = {
       id: crypto.randomUUID(),
+      type: type,
       title: '',
-      status: 'open',
+      status: 'to-do',
       assignee: '',
       reporter: '',
       description: '',
@@ -92,15 +85,13 @@ export default function Home() {
   };
 
   const deleteIssue = (id: string) => {
-    if (!confirm('Are you sure you want to delete this issue?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
     const remaining = issues.filter(issue => issue.id !== id);
     setIssues(remaining);
     if (selectedId === id) setSelectedId(null);
   };
 
   const selectedIssue = issues.find(i => i.id === selectedId) || null;
-
-  // Global Loading State (Cloud fetching)
   const isDataLoading = loadingIssues || loadingAssignees || loadingNotes;
 
   return (
@@ -113,7 +104,7 @@ export default function Home() {
         bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full flex-shrink-0 shadow-xl md:shadow-none
       `}>
         
-        {/* Header with Auth & Notes */}
+        {/* Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white dark:bg-slate-900 z-10">
           <div className="flex items-center gap-2">
              <h1 className="font-bold text-lg tracking-tight text-slate-800 dark:text-slate-100">Tracker</h1>
@@ -123,7 +114,7 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-1">
-             <AuthButton onUserChange={setCurrentUser} /> {/* New Auth Component */}
+             <AuthButton onUserChange={setCurrentUser} />
              <button 
                 onClick={() => setIsNotesOpen(true)}
                 className="p-2 rounded-md text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -135,39 +126,95 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Cloud Status Indicator */}
-        {/* {currentUser && (
+        {/* Cloud Status */}
+        {currentUser && (
             <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/50 text-[10px] text-blue-600 dark:text-blue-300 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                 Syncing with Cloud
             </div>
-        )} */}
+        )}
 
-        <div className="p-3 bg-slate-50 dark:bg-slate-900/50">
-          <button 
-            onClick={createNewIssue}
-            disabled={isDataLoading}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-md text-sm font-medium transition-colors shadow-sm"
-          >
-            {isDataLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
-            New Issue
-          </button>
+        {/* TABS (New) */}
+        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                {(['all', 'issue', 'note'] as const).map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setCurrentTab(tab)}
+                        className={`
+                            flex-1 py-1.5 text-xs font-semibold rounded-md transition-all capitalize
+                            ${currentTab === tab 
+                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                                : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }
+                        `}
+                    >
+                        {tab === 'issue' ? 'Issues' : tab}
+                    </button>
+                ))}
+            </div>
+        </div>
+        
+        {/* SMART CREATE BUTTONS (Based on Tab) */}
+        <div className="px-4 pb-3 bg-slate-50 dark:bg-slate-900/50 flex gap-2">
+            {currentTab === 'all' ? (
+                <>
+                    <button 
+                        onClick={() => createNewItem('issue')}
+                        disabled={isDataLoading}
+                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
+                    >
+                        {isDataLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutList className="w-4 h-4" />} 
+                        Issue
+                    </button>
+                    <button 
+                        onClick={() => createNewItem('note')}
+                        disabled={isDataLoading}
+                        className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 py-2 rounded-md text-sm font-medium transition-colors"
+                    >
+                        {isDataLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} 
+                        Note
+                    </button>
+                </>
+            ) : currentTab === 'issue' ? (
+                <button 
+                    onClick={() => createNewItem('issue')}
+                    disabled={isDataLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
+                >
+                    {isDataLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
+                    New Issue
+                </button>
+            ) : (
+                <button 
+                    onClick={() => createNewItem('note')}
+                    disabled={isDataLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                    {isDataLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
+                    New Note
+                </button>
+            )}
         </div>
 
-        <div className="flex-1 overflow-hidden relative">
-            {isDataLoading ? (
-                <div className="flex items-center justify-center h-full text-slate-400 text-sm gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading Data...
-                </div>
-            ) : (
-                <IssueList 
-                issues={filteredIssues} 
-                selectedId={selectedId} 
-                onSelect={handleSelect}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                />
-            )}
+        {/* SEARCH & LIST */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {isDataLoading ? (
+                    <div className="flex items-center justify-center h-full text-slate-400 text-sm gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading Data...
+                    </div>
+                ) : (
+                    <IssueList 
+                    issues={filteredIssues} 
+                    selectedId={selectedId} 
+                    onSelect={handleSelect}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    />
+                )}
+            </div>
         </div>
       </aside>
 
@@ -189,11 +236,11 @@ export default function Home() {
             onBack={handleBack}
             assignees={assignees}
             onAddAssignee={handleAddAssignee}
+            // layoutMode prop removed
             />
         )}
       </main>
 
-      {/* Personal Notes Drawer */}
       <PersonalNotes 
         isOpen={isNotesOpen} 
         onClose={() => setIsNotesOpen(false)} 
