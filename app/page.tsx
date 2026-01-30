@@ -10,6 +10,8 @@ import IssueDetails from '@/components/IssueDetails';
 import ThemeToggle from '@/components/ThemeToggle';
 import PersonalNotes from '@/components/PersonalNotes';
 import AuthButton from '@/components/AuthButton';
+import { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable'; // FIXED: Added missing import
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -38,12 +40,39 @@ export default function Home() {
     }
   };
 
-  // NEW: Pin Toggle Handler
   const handleTogglePin = (id: string) => {
     const target = issues.find(i => i.id === id);
     if (target) {
       updateIssue({ ...target, isPinned: !target.isPinned, updatedAt: Date.now() });
     }
+  };
+
+  // DRAG AND DROP HANDLER
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    // SAFETY CHECK: Disable Drag/Drop while filtering or searching
+    // This prevents logic errors where you move one item and lose the hidden ones
+    if (searchQuery || currentTab !== 'all') {
+      return;
+    }
+
+    const oldIndex = issues.findIndex((item) => item.id === active.id);
+    const newIndex = issues.findIndex((item) => item.id === over.id);
+
+    if (oldIndex === undefined || newIndex === undefined) return;
+
+    // Reorder the main list
+    const reorderedList = arrayMove(issues, oldIndex, newIndex);
+
+    // Update orders sequentially (0, 1, 2...)
+    const updatedIssues = reorderedList.map((issue, index) => ({
+        ...issue,
+        order: index
+    }));
+
+    setIssues(updatedIssues);
   };
 
   const filteredIssues = useMemo(() => {
@@ -66,19 +95,26 @@ export default function Home() {
       );
     }
 
-    // 3. Sort: Pinned first, then by Updated Time
+    // 3. Sort: Pinned > Manual Order > Updated Time
     return result.sort((a, b) => {
-      // If pinned status differs, pinned goes first
-      if (a.isPinned !== b.isPinned) {
-        return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
-      }
-      // Otherwise, newest updated goes first
-      return b.updatedAt - a.updatedAt;
+        // Pinned items first
+        if (a.isPinned !== b.isPinned) {
+            return (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0);
+        }
+        // Respect manual order
+        if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+        }
+        // Fallback to date
+        return b.updatedAt - a.updatedAt;
     });
 
   }, [issues, currentTab, searchQuery]);
 
   const createNewItem = (type: EntryType) => {
+    // Calculate next order number (max existing + 1)
+    const maxOrder = issues.reduce((max, issue) => Math.max(max, issue.order || 0), 0);
+
     const newIssue: Issue = {
       id: crypto.randomUUID(),
       type: type,
@@ -91,7 +127,8 @@ export default function Home() {
       commandOrCron: '',
       prBaseUrl: '',
       issueUrl: '',
-      isPinned: false, // Initialize as false
+      isPinned: false,
+      order: maxOrder + 1, // Initialize order
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -146,12 +183,12 @@ export default function Home() {
         </div>
         
         {/* Cloud Status */}
-        {/* {currentUser && (
+        {currentUser && (
             <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/50 text-[10px] text-blue-600 dark:text-blue-300 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                 Syncing with Cloud
             </div>
-        )} */}
+        )}
 
         {/* TABS */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
@@ -218,16 +255,7 @@ export default function Home() {
 
         {/* SEARCH & LIST */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-10">
-                <input
-                    type="text"
-                    placeholder={`Search ${currentTab === 'all' ? 'items' : currentTab}...`}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-950 border-none rounded-lg text-sm text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
-                />
-            </div>
-            
+          
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {isDataLoading ? (
                     <div className="flex items-center justify-center h-full text-slate-400 text-sm gap-2">
@@ -240,7 +268,8 @@ export default function Home() {
                     onSelect={handleSelect}
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
-                    onTogglePin={handleTogglePin} // Pass handler
+                    onTogglePin={handleTogglePin}
+                    onDragEnd={handleDragEnd} 
                     />
                 )}
             </div>

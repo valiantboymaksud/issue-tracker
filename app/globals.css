@@ -11,7 +11,7 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1; /* light mode */
+    background: #cbd5e1; 
     border-radius: 4px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -19,6 +19,91 @@
   }
 }
 
-/* Dark mode scrollbar override handled by standard CSS usually, 
-   but for custom components we can add media query if needed. 
-   However, Tailwind colors work fine on standard scrollbars usually. */
+/* --- ENHANCED MARKDOWN STYLES --- */
+.prose-content {
+  line-height: 1.75; /* Match Tailwind Typography default */
+  color: inherit;
+  font-size: 1rem;
+}
+
+.prose-content p {
+  margin-bottom: 1.25em;
+}
+
+/* --- EDITOR INPUT MIMIC (Fix "Text Format Changed") --- */
+/* This forces the Textarea to look exactly like the prose-text */
+.editor-mimic {
+  line-height: 1.75 !important; 
+  font-size: 1rem !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: -0.025em !important; /* Match prose */
+}
+
+.prose-content h1, .prose-content h2, .prose-content h3, .prose-content h4 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: inherit;
+}
+.prose-content h1 { font-size: 2.25em; border-bottom: 1px solid currentColor; opacity: 0.8; padding-bottom: 0.3em; }
+.prose-content h2 { font-size: 1.5em; border-bottom: 1px solid currentColor; opacity: 0.8; padding-bottom: 0.3em; }
+.prose-content h3 { font-size: 1.25em; }
+
+/* Links */
+.prose-content a {
+  color: #2563eb;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.dark .prose-content a {
+  color: #60a5fa;
+}
+.prose-content a:hover {
+  border-bottom-color: currentColor;
+}
+
+/* Lists */
+.prose-content ul, .prose-content ol {
+  padding-left: 1.6em;
+  margin-bottom: 1.25em;
+}
+.prose-content ul { list-style-type: disc; }
+.prose-content ol { list-style-type: decimal; }
+
+/* Code Blocks */
+.prose-content pre {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5em;
+  padding: 1em;
+  overflow-x: auto;
+  margin-bottom: 1.5em;
+  font-size: 0.9em;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.dark .prose-content pre {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+/* Inline Code */
+.prose-content code {
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 0.1em 0.3em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+.dark .prose-content code {
+  background: #334155;
+  color: #f8fafc;
+}
+.prose-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+}

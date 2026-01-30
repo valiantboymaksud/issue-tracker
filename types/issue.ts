@@ -14,7 +14,8 @@ export interface Issue {
   commandOrCron: string;
   prBaseUrl: string;
   issueUrl: string;
-  isPinned: boolean; // NEW: Pinned/Favorite state
+  isPinned: boolean;
+  order: number; // NEW: For Drag and Drop ordering
   createdAt: number;
   updatedAt: number;
 }

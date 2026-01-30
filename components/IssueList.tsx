@@ -1,8 +1,25 @@
 "use client";
 
 import { Issue, IssueStatus } from '@/types/issue';
-import { User, CheckCircle, Search, AlertCircle, FileText, LayoutList, Star, StarOff } from 'lucide-react';
+import { User, CheckCircle, Search, AlertCircle, FileText, LayoutList, Star, StarOff, GripVertical } from 'lucide-react';
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable as useSortableDnd, // Renamed to prevent conflicts
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
+// Styles
 const STATUS_STYLES: Record<IssueStatus, { dark: string; light: string }> = {
   'to-do': { 
     dark: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
@@ -30,17 +47,126 @@ const STATUS_STYLES: Record<IssueStatus, { dark: string; light: string }> = {
   },
 };
 
+// Component for Individual Sortable Item
+function SortableItem({ issue, selectedId, onSelect, onTogglePin }: { 
+  issue: Issue; 
+  selectedId: string | null; 
+  onSelect: (id: string) => void; 
+  onTogglePin: (id: string) => void; 
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortableDnd({ id: issue.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const styles = STATUS_STYLES[issue.status] || STATUS_STYLES['to-do'];
+  const isNote = issue.type === 'note';
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        group flex items-start gap-3 p-4 cursor-pointer transition-all duration-200 border-l-4 border-b border-slate-100 dark:border-slate-800/50
+        ${selectedId === issue.id 
+          ? 'bg-blue-50 dark:bg-slate-800 border-blue-500' 
+          : 'bg-white dark:bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/50'
+        }
+      `}
+      onClick={() => onSelect(issue.id)}
+    >
+      {/* Drag Handle */}
+      <div 
+        {...attributes} 
+        {...listeners} 
+        className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 py-1"
+        onClick={(e) => e.stopPropagation()} 
+      >
+        <GripVertical className="w-5 h-5" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+         <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">
+                {isNote ? <FileText className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
+              </span>
+              
+              {!isNote ? (
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${styles.dark} dark:${styles.dark.split(' ').map(c => c.startsWith('bg') ? c : `dark:${c}`).join(' ')} ${styles.light}`}>
+                  {issue.status.replace('-', ' ')}
+                </span>
+              ) : (
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400`}>
+                  NOTE
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin(issue.id);
+                }}
+                className={`p-1 rounded-md transition-colors ${issue.isPinned ? 'text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                title={issue.isPinned ? "Unpin" : "Pin"}
+              >
+                {issue.isPinned ? <Star className="w-4 h-4 fill-current" /> : <StarOff className="w-4 h-4" />}
+              </button>
+              
+              {selectedId === issue.id && <CheckCircle className="w-4 h-4 text-blue-500" />}
+            </div>
+          </div>
+          
+          <h3 className="font-medium text-slate-800 dark:text-slate-200 text-sm line-clamp-2 leading-relaxed mb-2">
+            {issue.title || 'Untitled Item'}
+          </h3>
+          
+          <div className="flex items-center justify-between mt-auto gap-2">
+            {!isNote && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500 overflow-hidden">
+                    <User className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">{issue.assignee || 'Unassigned'}</span>
+                </div>
+            )}
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-600 font-mono ml-auto">
+                <span>{new Date(issue.updatedAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+      </div>
+    </div>
+  );
+}
+
+// Main List Component
 interface IssueListProps {
   issues: Issue[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onTogglePin: (id: string) => void; // New prop
+  onTogglePin: (id: string) => void;
+  onDragEnd: (event: DragEndEvent) => void;
 }
 
-export default function IssueList({ issues, selectedId, onSelect, searchQuery, onSearchChange, onTogglePin }: IssueListProps) {
+export default function IssueList({ issues, selectedId, onSelect, searchQuery, onSearchChange, onTogglePin, onDragEnd }: IssueListProps) {
   
+  // DnD Sensors (Cleaned up coordinateGetter)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor) // Removed problematic config
+  );
+
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 w-full">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-10 shadow-sm">
@@ -48,7 +174,7 @@ export default function IssueList({ issues, selectedId, onSelect, searchQuery, o
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search issues & notes..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-950 border-none rounded-lg text-sm text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
@@ -56,83 +182,30 @@ export default function IssueList({ issues, selectedId, onSelect, searchQuery, o
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
         {issues.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500 dark:text-slate-500 p-6 text-center">
             <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-sm font-medium">No items found.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-200 dark:divide-slate-800/50">
-            {issues.map((issue) => {
-              const styles = STATUS_STYLES[issue.status] || STATUS_STYLES['to-do'];
-              const isNote = issue.type === 'note';
-
-              return (
-                <div
-                  key={issue.id}
-                  onClick={() => onSelect(issue.id)}
-                  className={`
-                    group flex flex-col p-4 cursor-pointer transition-all duration-200 border-l-4
-                    ${selectedId === issue.id 
-                      ? 'bg-blue-50 dark:bg-slate-800 border-blue-500' 
-                      : 'bg-white dark:bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/50'
-                    }
-                  `}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">
-                        {isNote ? <FileText className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
-                      </span>
-                      
-                      {!isNote ? (
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${styles.dark} dark:${styles.dark.split(' ').map(c => c.startsWith('bg') ? c : `dark:${c}`).join(' ')} ${styles.light}`}>
-                          {issue.status.replace('-', ' ')}
-                        </span>
-                      ) : (
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400`}>
-                          NOTE
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* PIN BUTTON */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTogglePin(issue.id);
-                        }}
-                        className={`p-1 rounded-md transition-colors ${issue.isPinned ? 'text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/20' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                        title={issue.isPinned ? "Unpin" : "Pin"}
-                      >
-                        {issue.isPinned ? <Star className="w-4 h-4 fill-current" /> : <StarOff className="w-4 h-4" />}
-                      </button>
-                      
-                      {selectedId === issue.id && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                    </div>
-                  </div>
-                  
-                  <h3 className="font-medium text-slate-800 dark:text-slate-200 text-sm line-clamp-2 leading-relaxed mb-2">
-                    {issue.title || 'Untitled Item'}
-                  </h3>
-                  
-                  <div className="flex items-center justify-between mt-auto gap-2">
-                    {!isNote && (
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500 overflow-hidden">
-                            <User className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{issue.assignee || 'Unassigned'}</span>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-600 font-mono ml-auto">
-                        <span>{new Date(issue.updatedAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext 
+            sensors={sensors} 
+            collisionDetection={closestCenter} 
+            onDragEnd={onDragEnd}
+          >
+            <SortableContext items={issues} strategy={verticalListSortingStrategy}>
+                {issues.map((issue) => (
+                <SortableItem 
+                    key={issue.id} 
+                    issue={issue} 
+                    selectedId={selectedId} 
+                    onSelect={onSelect}
+                    onTogglePin={onTogglePin}
+                />
+                ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
